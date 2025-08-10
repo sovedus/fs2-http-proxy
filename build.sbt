@@ -1,3 +1,5 @@
+
+
 lazy val tlScalafixVersion = "0.5.0"
 
 ThisBuild / tlBaseVersion := "0.1"
@@ -10,6 +12,7 @@ ThisBuild / developers := List(
 )
 ThisBuild / tlCiReleaseBranches := Seq("master")
 ThisBuild / githubWorkflowTargetBranches := Seq("master")
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 
 ThisBuild / scalafixDependencies ++= Seq(
   "org.typelevel" %% "typelevel-scalafix" % tlScalafixVersion,
