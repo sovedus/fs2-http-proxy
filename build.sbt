@@ -1,5 +1,3 @@
-
-
 lazy val tlScalafixVersion = "0.5.0"
 
 ThisBuild / tlBaseVersion := "0.1"
