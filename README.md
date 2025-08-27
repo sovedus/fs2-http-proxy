@@ -1,3 +1,5 @@
+[![](https://maven-badges.sml.io/sonatype-central/io.github.sovedus/fs2-http-proxy_2.13/badge.svg)](https://central.sonatype.com/search?namespace=io.github.sovedus&q=fs2-http-proxy)
+
 # fs2-http-proxy
 
 ---
@@ -10,6 +12,12 @@
 
 This library provides an implementation of http server.  
 Based on cats-effect and fs2.
+
+## Getting Started
+
+```scala
+libraryDependencies += "io.github.sovedus" %% "fs2-http-proxy" % "<x.y.z>"
+```
 
 
 ## License
