@@ -41,7 +41,8 @@ object ConnectRequestHandler {
         .attemptT
         .map(acceptAction)
         .valueOrF(ex =>
-          logger.error(ex)("Handle connect request error").as(ConnectAction.reject[F]))
+          logger.error(ex)("Handle connect request error").as(ConnectAction.reject[F])
+        )
 
     private def acceptAction(address: SocketAddress[Host]): ConnectAction.Accept[F] =
       ConnectAction.accept { stream =>
@@ -68,8 +69,7 @@ object ConnectRequestHandler {
 
         (host, port)
       } else {
-        val host = uri
-          .host
+        val host = uri.host
           .map(_.renderString.stripPrefix("[").stripSuffix("]"))
           .flatMap(Host.fromString)
           .getOrElse(throw new ParseFailure("Fail parse request URI", ""))

@@ -79,7 +79,8 @@ final class HttpProxyServerBuilder[F[_]: Async: Network] private (
       shutdown <- Resource.eval(Shutdown(shutdownTimeout))
       ready <- Resource.eval(Deferred[F, Either[Throwable, SocketAddress[IpAddress]]])
       connectRequestHandler = connectRequestHandlerOpt.getOrElse(
-        ConnectRequestHandler.default(logger))
+        ConnectRequestHandler.default(logger)
+      )
       httpRequestHandler = httpRequestHandlerOpt.getOrElse(
         HttpRequestHandler.default(logger)
       )

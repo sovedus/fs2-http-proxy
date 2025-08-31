@@ -34,14 +34,9 @@ object Encoder {
         .append(req.httpVersion.renderString)
         .append(CRLF)
 
-      req
-        .headers
-        .foreach(h =>
-          sb.append(h.name)
-            .append(':')
-            .append(SPACE)
-            .append(h.sanitizedValue)
-            .append(CRLF): Unit)
+      req.headers.foreach(h =>
+        sb.append(h.name).append(':').append(SPACE).append(h.sanitizedValue).append(CRLF): Unit
+      )
 
       sb.append(CRLF).result()
     }
@@ -57,14 +52,9 @@ object Encoder {
         .append(resp.status.renderString)
         .append(CRLF)
 
-      resp
-        .headers
-        .foreach(h =>
-          sb.append(h.name)
-            .append(':')
-            .append(SPACE)
-            .append(h.sanitizedValue)
-            .append(CRLF): Unit)
+      resp.headers.foreach(h =>
+        sb.append(h.name).append(':').append(SPACE).append(h.sanitizedValue).append(CRLF): Unit
+      )
 
       sb.append(CRLF).result()
     }

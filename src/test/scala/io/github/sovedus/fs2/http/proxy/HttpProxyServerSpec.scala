@@ -47,8 +47,7 @@ class HttpProxyServerSpec extends BaseSpec {
           resp <- ResponseParser.parse(client.read(1024))
           _ = resp.status shouldBe Status.Ok
           _ = resp.headers shouldBe Headers.empty
-          _ <- fs2
-            .Stream
+          _ <- fs2.Stream
             .emit("foo")
             .through(fs2.text.utf8.encode)
             .through(client.writes)

@@ -77,7 +77,8 @@ object HttpRequestHandler {
         }
         .getOrElse(invalidAddressResponse)
         .recoverWith(ex =>
-          logger.error(ex)("Handle request error").as(exceptionResponse(ex.getMessage)))
+          logger.error(ex)("Handle request error").as(exceptionResponse(ex.getMessage))
+        )
     }
 
     private def errResponse(status: Status, body: String): Response[F] = {

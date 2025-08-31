@@ -77,8 +77,7 @@ class DefaultConnectRequestHandlerSpec extends BaseSpec {
             action <- handler.handleRequest(request(address))
             result <- action match {
               case ConnectAction.Accept(_, tunnel) =>
-                fs2
-                  .Stream
+                fs2.Stream
                   .emit("ping")
                   .through(fs2.text.utf8.encode)
                   .through(tunnel)
