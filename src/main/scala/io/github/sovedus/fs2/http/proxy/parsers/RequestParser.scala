@@ -18,7 +18,7 @@ package io.github.sovedus.fs2.http.proxy.parsers
 
 import io.github.sovedus.fs2.http.proxy.HttpProxyServerException
 
-import cats.effect.Async
+import cats.effect.Sync
 import cats.syntax.all.*
 
 import org.http4s.{Method, Request}
@@ -27,15 +27,16 @@ import fs2.{Chunk, Stream}
 import scodec.bits.ByteVector
 
 object RequestParser extends Parser {
-  def parse[F[_]: Async](read: F[Option[Chunk[Byte]]]): F[Request[F]] =
+  def parse[F[_]: Sync](read: F[Option[Chunk[Byte]]]): F[Request[F]] =
     for {
       (prelude, buffer2) <- recursiveRead(
         ByteVector.empty,
         read,
-        ReqPreludeParser.ParserState.init)((state, buff) =>
-        ReqPreludeParser.parse(buff.toArray, state))(_.idx)
+        ReqPreludeParser.ParserState.init
+      )((state, buff) => ReqPreludeParser.parse(buff, state))(_.idx)
       (hp, buffer3) <- recursiveRead(buffer2, read, HeadersParser.ParserState.init)(
-        (state, buff) => HeadersParser.parse(buff.toArray, state))(_.idx).adaptError {
+        (state, buff) => HeadersParser.parse(buff, state)
+      )(_.idx).adaptError {
         case HttpProxyServerException.EmptyStream() =>
           HttpProxyServerException.ReachedEndOfStream()
       }

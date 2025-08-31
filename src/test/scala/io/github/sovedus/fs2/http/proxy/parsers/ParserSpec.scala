@@ -45,4 +45,20 @@ class ParserSpec extends BaseSpec with Parser {
     recursiveRead(bytes, read, "init")((_, _) => IO("part".asLeft[String]))(_ => 0)
       .assertThrows[EmptyStream]
   }
+
+  "recursiveReadStream" should "thrown exception when buffer non empty but end data" in {
+    val bytes = ByteVector(1, 2, 3)
+    val emptyStream = fs2.Stream.empty.covaryAll[IO, Byte]
+
+    recursiveReadStream(bytes, emptyStream, "init")((_, _) => IO("part".asLeft[String]))(_ => 0)
+      .assertThrows[ReachedEndOfStream]
+  }
+
+  it should "thrown exception when no data" in {
+    val bytes = ByteVector.empty
+    val emptyStream = fs2.Stream.empty.covaryAll[IO, Byte]
+
+    recursiveReadStream(bytes, emptyStream, "init")((_, _) => IO("part".asLeft[String]))(_ => 0)
+      .assertThrows[EmptyStream]
+  }
 }

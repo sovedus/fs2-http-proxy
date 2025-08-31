@@ -22,12 +22,14 @@ import cats.effect.IO
 
 import org.http4s.{HttpVersion, ParseFailure, Status}
 
+import scodec.bits.ByteVector
+
 import RespPreludeParser.ResponsePreludeParserException
 
 class RespPreludeParseSpec extends BaseSpec {
 
   "RespPreludeParser" should "successfully parse resp prelude with reason status" in {
-    val bytes = "HTTP/1.1 200 Ok\r\n".getBytes
+    val bytes = ByteVector.encodeUtf8("HTTP/1.1 200 Ok\r\n").value
 
     RespPreludeParser.parse[IO](bytes, RespPreludeParser.ParserState.init).asserting { result =>
       val prelude = result.value
@@ -38,7 +40,7 @@ class RespPreludeParseSpec extends BaseSpec {
   }
 
   it should "failed when uses invalid http version" in {
-    val bytes = "HTTP/5 200 Ok\r\n".getBytes
+    val bytes = ByteVector.encodeUtf8("HTTP/5 200 Ok\r\n").value
 
     RespPreludeParser
       .parse[IO](bytes, RespPreludeParser.ParserState.init)
@@ -52,7 +54,7 @@ class RespPreludeParseSpec extends BaseSpec {
   }
 
   it should "failed when uses not number http status" in {
-    val bytes = "HTTP/1.1 OOO Ok\r\n".getBytes
+    val bytes = ByteVector.encodeUtf8("HTTP/1.1 OOO Ok\r\n").value
 
     RespPreludeParser
       .parse[IO](bytes, RespPreludeParser.ParserState.init)
@@ -63,7 +65,7 @@ class RespPreludeParseSpec extends BaseSpec {
   }
 
   it should "failed when uses status number out of accept range" in {
-    val bytes = "HTTP/1.1 9999 Ok\r\n".getBytes
+    val bytes = ByteVector.encodeUtf8("HTTP/1.1 9999 Ok\r\n").value
 
     RespPreludeParser
       .parse[IO](bytes, RespPreludeParser.ParserState.init)
@@ -76,7 +78,7 @@ class RespPreludeParseSpec extends BaseSpec {
   }
 
   it should "successfully parsed use partially parser state" in {
-    val bytes = "HTTP/1.1 200 Ok\r\n".getBytes
+    val bytes = ByteVector.encodeUtf8("HTTP/1.1 200 Ok\r\n").value
 
     val (part1, part2) = bytes.splitAt(4)
 
@@ -88,7 +90,7 @@ class RespPreludeParseSpec extends BaseSpec {
       .asserting { result =>
         result.status shouldBe Status.Ok
         result.httpVersion shouldBe HttpVersion.`HTTP/1.1`
-        result.idx should be > 0
+        result.idx should be > 0L
       }
   }
 }

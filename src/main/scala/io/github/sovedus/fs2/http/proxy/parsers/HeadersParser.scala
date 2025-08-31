@@ -22,13 +22,15 @@ import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherId}
 import org.http4s.{Header, Headers}
 import org.typelevel.ci.CIString
 
+import scodec.bits.ByteVector
+
 private[parsers] object HeadersParser extends Parser {
 
-  final case class ParserResult(headers: Headers, idx: Int)
+  final case class ParserResult(headers: Headers, idx: Long)
 
   final case class ParserState(
-      idx: Int,
-      start: Int,
+      idx: Long,
+      start: Long,
       stage: Boolean,
       complete: Boolean,
       name: Option[String],
@@ -46,7 +48,7 @@ private[parsers] object HeadersParser extends Parser {
     )
   }
 
-  def parse[F[_]](buffer: Array[Byte], state: ParserState)(
+  def parse[F[_]](buffer: ByteVector, state: ParserState)(
       implicit F: Sync[F]
   ): F[Either[ParserState, ParserResult]] = F.defer {
     var idx = state.idx
@@ -61,7 +63,7 @@ private[parsers] object HeadersParser extends Parser {
 
       if (!stage) {
         if (current == colon) {
-          name = new String(buffer, start, idx - start)
+          name = buffer.slice(start, idx).decodeUtf8Lenient
           start = idx + 1
           stage = true
         } else if (current == lf && buffer(idx - 1) == cr) {
@@ -71,7 +73,7 @@ private[parsers] object HeadersParser extends Parser {
         if (current == lf && buffer(idx - 1) == cr) {
           val ciName = CIString(name)
           name = null
-          val value = new String(buffer, start, idx - start - 1).trim
+          val value = buffer.slice(start, idx - 1).decodeUtf8Lenient.trim
           val header = Header.Raw(ciName, value)
           headers = headers :+ header
           start = idx + 1

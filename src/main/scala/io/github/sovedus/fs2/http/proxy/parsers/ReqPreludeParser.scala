@@ -23,18 +23,20 @@ import org.http4s.{HttpVersion, Method, Uri}
 
 import scala.annotation.switch
 
+import scodec.bits.ByteVector
+
 private[parsers] object ReqPreludeParser extends Parser {
 
   final case class ParserResult(
       method: Method,
       uri: Uri,
       httpVersion: HttpVersion,
-      idx: Int
+      idx: Long
   )
 
   final case class ParserState(
-      idx: Int,
-      start: Int,
+      idx: Long,
+      start: Long,
       stage: Byte,
       complete: Boolean,
       error: Option[Throwable],
@@ -52,7 +54,8 @@ private[parsers] object ReqPreludeParser extends Parser {
       error = None,
       method = None,
       uri = None,
-      httpVersion = None)
+      httpVersion = None
+    )
   }
 
   final case class RequestPreludeParserException(
@@ -66,7 +69,7 @@ private[parsers] object ReqPreludeParser extends Parser {
         throwable
       )
 
-  def parse[F[_]](buffer: Array[Byte], state: ParserState)(
+  def parse[F[_]](buffer: ByteVector, state: ParserState)(
       implicit F: Sync[F]
   ): F[Either[ParserState, ParserResult]] = F.defer {
     var idx = state.idx
@@ -85,7 +88,7 @@ private[parsers] object ReqPreludeParser extends Parser {
       (stage: @switch) match {
         case 0 =>
           if (value == space) {
-            Method.fromString(new String(buffer, start, idx - start)) match {
+            Method.fromString(buffer.slice(start, idx).decodeAsciiLenient) match {
               case Left(ex) =>
                 throwable = ex
                 complete = true
@@ -98,7 +101,7 @@ private[parsers] object ReqPreludeParser extends Parser {
           }
         case 1 =>
           if (value == space) {
-            Uri.requestTarget(new String(buffer, start, idx - start)) match {
+            Uri.requestTarget(buffer.slice(start, idx).decodeUtf8Lenient) match {
               case Left(ex) =>
                 throwable = ex
                 complete = true
@@ -111,7 +114,7 @@ private[parsers] object ReqPreludeParser extends Parser {
           }
         case 2 =>
           if (value == lf && (idx > 0 && buffer(idx - 1) == cr)) {
-            HttpVersion.fromString(new String(buffer, start, idx - start - 1)) match {
+            HttpVersion.fromString(buffer.slice(start, idx - 1).decodeUtf8Lenient) match {
               case Left(ex) =>
                 throwable = ex
               case Right(v) =>
@@ -131,7 +134,9 @@ private[parsers] object ReqPreludeParser extends Parser {
           throwable,
           Option(method),
           Option(uri),
-          Option(httpVersion)))
+          Option(httpVersion)
+        )
+      )
     } else if (method == null || uri == null || httpVersion == null) {
       ParserState(
         idx,

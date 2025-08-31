@@ -18,7 +18,7 @@ package io.github.sovedus.fs2.http.proxy.parsers
 
 import io.github.sovedus.fs2.http.proxy.HttpProxyServerException
 
-import cats.effect.Async
+import cats.effect.{Async, Sync}
 import cats.syntax.all.*
 
 import fs2.{Chunk, Pull, Stream}
@@ -30,20 +30,47 @@ trait Parser {
   private[parsers] val lf: Byte = 10 // \n
   private[parsers] val cr: Byte = 13 // \r
 
-  protected def recursiveRead[F[_]: Async, S, A](
+  protected def recursiveRead[F[_]: Sync, S, A](
       buffer: ByteVector,
       read: F[Option[Chunk[Byte]]],
       state: S
-  )(f: (S, ByteVector) => F[Either[S, A]])(skip: A => Int): F[(A, ByteVector)] =
+  )(f: (S, ByteVector) => F[Either[S, A]])(skip: A => Long): F[(A, ByteVector)] =
     f(state, buffer).flatMap {
       case Left(state) =>
         read.flatMap {
           case Some(value) => recursiveRead(concatBytes(buffer, value), read, state)(f)(skip)
           case None if buffer.length > 0 =>
-            Async[F].raiseError(HttpProxyServerException.ReachedEndOfStream())
-          case _ => Async[F].raiseError(HttpProxyServerException.EmptyStream())
+            Sync[F].raiseError(HttpProxyServerException.ReachedEndOfStream())
+          case _ => Sync[F].raiseError(HttpProxyServerException.EmptyStream())
         }
-      case Right(value) => (value, buffer.drop(skip(value).toLong)).pure[F]
+      case Right(value) => (value, buffer.drop(skip(value))).pure[F]
+    }
+
+  protected def recursiveReadStream[F[_]: Async, S, A](
+      buffer: ByteVector,
+      stream: Stream[F, Byte],
+      state: S
+  )(
+      f: (S, ByteVector) => F[Either[S, A]]
+  )(skip: A => Long): F[(A, Stream[F, Byte])] =
+    f(state, buffer).flatMap {
+      case Left(nextState) =>
+        stream.chunks.take(1).compile.last.flatMap {
+          case Some(value) =>
+            val newBuffer = concatBytes(buffer, value)
+            val newStream = stream.drop(value.size.toLong)
+            recursiveReadStream(newBuffer, newStream, nextState)(f)(skip)
+          case None if buffer.length > 0 =>
+            Async[F]
+              .raiseError[(A, Stream[F, Byte])](HttpProxyServerException.ReachedEndOfStream())
+          case _ =>
+            Async[F].raiseError[(A, Stream[F, Byte])](HttpProxyServerException.EmptyStream())
+        }
+      case Right(value) =>
+        Async[F].delay {
+          val s = Stream.chunk(Chunk.byteVector(buffer.drop(skip(value)))) ++ stream
+          (value, s)
+        }
     }
 
   protected def bodyStream[F[_]](

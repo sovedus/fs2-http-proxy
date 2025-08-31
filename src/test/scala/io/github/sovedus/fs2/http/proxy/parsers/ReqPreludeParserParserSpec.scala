@@ -23,6 +23,8 @@ import cats.implicits.toTraverseOps
 
 import org.http4s.{HttpVersion, Method, Uri}
 
+import scodec.bits.ByteVector
+
 import ReqPreludeParser.RequestPreludeParserException
 
 class ReqPreludeParserParserSpec extends BaseSpec {
@@ -38,7 +40,7 @@ class ReqPreludeParserParserSpec extends BaseSpec {
       .traverse {
         case (method, uri, httpVersion) =>
           val buffer =
-            makeReqPrelude(method.name, uri, httpVersion).getBytes
+            ByteVector.encodeUtf8(makeReqPrelude(method.name, uri, httpVersion)).value
 
           ReqPreludeParser.parse[IO](buffer, ReqPreludeParser.ParserState.init).asserting {
             result =>
@@ -53,14 +55,14 @@ class ReqPreludeParserParserSpec extends BaseSpec {
   }
 
   it should "return init state at call with empty buffer" in
-    ReqPreludeParser.parse[IO](Array.empty[Byte], ReqPreludeParser.ParserState.init).asserting {
+    ReqPreludeParser.parse[IO](ByteVector.empty, ReqPreludeParser.ParserState.init).asserting {
       result =>
         val state = result.left.value
         state shouldBe ReqPreludeParser.ParserState.init
     }
 
   it should "return partially parsed state" in {
-    val partData = "GET http://exa".getBytes
+    val partData = ByteVector.encodeUtf8("GET http://exa").value
 
     ReqPreludeParser.parse[IO](partData, ReqPreludeParser.ParserState.init).asserting {
       stateE =>
@@ -75,7 +77,8 @@ class ReqPreludeParserParserSpec extends BaseSpec {
   }
 
   it should "successfully parsed use partially parser state" in {
-    val bytes = makeReqPrelude("GET", "http://example.com", "HTTP/1.0").getBytes
+    val bytes =
+      ByteVector.encodeUtf8(makeReqPrelude("GET", "http://example.com", "HTTP/1.0")).value
 
     val (part1, part2) = bytes.splitAt(20)
 
@@ -93,7 +96,7 @@ class ReqPreludeParserParserSpec extends BaseSpec {
 
   it should "failed when uses invalid HTTP method" in {
     val method = "/WRONG"
-    val bytes = makeReqPrelude(method, "host:443", "HTTP/1.1").getBytes
+    val bytes = ByteVector.encodeUtf8(makeReqPrelude(method, "host:443", "HTTP/1.1")).value
 
     ReqPreludeParser
       .parse[IO](bytes, ReqPreludeParser.ParserState.init)
@@ -107,7 +110,8 @@ class ReqPreludeParserParserSpec extends BaseSpec {
   }
 
   it should "failed when uses invalid uri" in {
-    val bytes = makeReqPrelude("GET", "1234://host:port", "HTTP/1.1").getBytes
+    val bytes =
+      ByteVector.encodeUtf8(makeReqPrelude("GET", "1234://host:port", "HTTP/1.1")).value
 
     ReqPreludeParser
       .parse[IO](bytes, ReqPreludeParser.ParserState.init)
@@ -121,7 +125,7 @@ class ReqPreludeParserParserSpec extends BaseSpec {
   }
 
   it should "failed when uses invalid http version" in {
-    val bytes = makeReqPrelude("GET", "host:123", "HTTP/500").getBytes
+    val bytes = ByteVector.encodeUtf8(makeReqPrelude("GET", "host:123", "HTTP/500")).value
 
     ReqPreludeParser
       .parse[IO](bytes, ReqPreludeParser.ParserState.init)

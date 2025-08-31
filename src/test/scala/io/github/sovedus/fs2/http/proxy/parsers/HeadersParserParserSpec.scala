@@ -25,6 +25,8 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.typelevel.ci.CIString
 
+import scodec.bits.ByteVector
+
 class HeadersParserParserSpec
     extends AsyncFlatSpec
     with AsyncIOSpec
@@ -33,7 +35,7 @@ class HeadersParserParserSpec
     with OptionValues {
 
   "Headers parser" should "parse one header" in {
-    val data = "Host: example.com\r\n\r\n".getBytes
+    val data = ByteVector.encodeUtf8("Host: example.com\r\n\r\n").value
     val headerName = CIString("Host")
     val headerValue = "example.com"
 
@@ -46,14 +48,16 @@ class HeadersParserParserSpec
   }
 
   it should "return init state at call with empty buffer" in
-    HeadersParser.parse[IO](Array.empty[Byte], HeadersParser.ParserState.init).asserting {
+    HeadersParser.parse[IO](ByteVector.empty, HeadersParser.ParserState.init).asserting {
       result =>
         val state = result.left.value
         state shouldBe HeadersParser.ParserState.init
     }
 
   it should "parse multiple headers" in {
-    val data = "Host: example.com\r\nHeader1: value1\r\nHeader2: value2\r\n\r\n".getBytes
+    val data = ByteVector
+      .encodeUtf8("Host: example.com\r\nHeader1: value1\r\nHeader2: value2\r\n\r\n")
+      .value
 
     HeadersParser.parse[IO](data, HeadersParser.ParserState.init).asserting { result =>
       val headers = result.value.headers.headers
@@ -68,13 +72,13 @@ class HeadersParserParserSpec
   }
 
   it should "return partially parsed state" in {
-    val data = "Host: example.com\r\nHeader1:".getBytes
+    val data = ByteVector.encodeUtf8("Host: example.com\r\nHeader1:").value
 
     HeadersParser.parse[IO](data, HeadersParser.ParserState.init).asserting { result =>
       val state = result.left.value
 
-      state.idx should be > 0
-      state.start should be > 0
+      state.idx should be > 0L
+      state.start should be > 0L
       state.stage shouldBe true
       state.name.isDefined shouldBe true
       state.headers.size shouldBe 1
@@ -83,8 +87,8 @@ class HeadersParserParserSpec
   }
 
   it should "successfully parsed use partially parser state" in {
-    val data1 = "Host: example.com\r\nHe".getBytes
-    val data2 = "ader1: value1\r\n\r\n".getBytes
+    val data1 = ByteVector.encodeUtf8("Host: example.com\r\nHe").value
+    val data2 = ByteVector.encodeUtf8("ader1: value1\r\n\r\n").value
 
     val f = for {
       state <- HeadersParser.parse[IO](data1, HeadersParser.ParserState.init).map(_.left.value)

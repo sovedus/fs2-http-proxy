@@ -24,17 +24,19 @@ import org.http4s.{HttpVersion, Status}
 import scala.annotation.switch
 import scala.util.{Failure, Success, Try}
 
+import scodec.bits.ByteVector
+
 object RespPreludeParser extends Parser {
 
   final case class ParserResult(
       httpVersion: HttpVersion,
       status: Status,
-      idx: Int
+      idx: Long
   )
 
   final case class ParserState(
-      idx: Int,
-      start: Int,
+      idx: Long,
+      start: Long,
       stage: Byte,
       complete: Boolean,
       error: Option[Throwable],
@@ -64,7 +66,7 @@ object RespPreludeParser extends Parser {
         throwable
       )
 
-  def parse[F[_]](buffer: Array[Byte], state: ParserState)(
+  def parse[F[_]](buffer: ByteVector, state: ParserState)(
       implicit F: Sync[F]
   ): F[Either[ParserState, ParserResult]] = F.defer {
     var idx = state.idx
@@ -84,7 +86,7 @@ object RespPreludeParser extends Parser {
       (stage: @switch) match {
         case 0 =>
           if (value == space) {
-            HttpVersion.fromString(new String(buffer, start, idx - start)) match {
+            HttpVersion.fromString(buffer.slice(start, idx).decodeUtf8Lenient) match {
               case Left(ex) =>
                 throwable = ex
                 complete = true
@@ -97,7 +99,7 @@ object RespPreludeParser extends Parser {
           }
         case 1 =>
           if (value == space) {
-            Try(new String(buffer, start, idx - start).toInt) match {
+            Try(buffer.slice(start, idx).decodeUtf8Lenient.toInt) match {
               case Failure(ex) =>
                 throwable = ex
                 complete = true
