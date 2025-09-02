@@ -24,6 +24,8 @@ import cats.syntax.all.*
 import org.http4s.{Method, Request, Response, Status}
 import org.typelevel.log4cats.Logger
 
+import java.net.SocketException
+
 import com.comcast.ip4s.{Host, IpAddress, Port, SocketAddress}
 import fs2.*
 import fs2.io.net.{Socket, SocketGroup, SocketOption}
@@ -55,7 +57,13 @@ object HttpProxyServer {
         val stream = for {
           _ <- shutdown.trackConnection
           req <- Stream.eval(RequestParser.parse(read))
-          _ <- runReqHandler(req, connectRequestHandler, httpRequestHandler, connection, read)
+          _ <- runReqHandler(
+            req,
+            connectRequestHandler,
+            httpRequestHandler,
+            connection,
+            read
+          )
         } yield {}
 
         def finalErrorHandler(t: Throwable): F[Unit] =
@@ -93,9 +101,9 @@ object HttpProxyServer {
       connectRequestHandler: ConnectRequestHandler[F],
       read: F[Option[Chunk[Byte]]],
       connection: Socket[F]
-  ): Stream[F, Unit] =
+  ): Stream[F, Unit] = {
     for {
-      action <- Stream.eval(connectRequestHandler.handleRequest(req))
+      action <- Stream.resource(connectRequestHandler.handleRequest(req))
       stream = tunnelStream(read)
       _ <- action match {
         case a: ConnectAction.Accept[F] =>
@@ -105,6 +113,7 @@ object HttpProxyServer {
           Stream.emit(a.resp).unNone.foreach(write(connection, _))
       }
     } yield {}
+  }
 
   private def runHttpReqHandler[F[_]: Async](
       req: Request[F],
@@ -117,16 +126,23 @@ object HttpProxyServer {
       .through(connection.writes)
       .void
 
-  private def tunnelStream[F[_]](read: F[Option[Chunk[Byte]]]): Stream[F, Byte] = {
+  private def tunnelStream[F[_]: Async](read: F[Option[Chunk[Byte]]]): Stream[F, Byte] = {
     val bytesPull = Pull.eval(read)
 
-    def go(): Pull[F, Byte, Unit] =
-      bytesPull.flatMap {
-        case Some(chunk) => Pull.output(chunk) >> go()
-        case None => Pull.done
-      }
+    def go(init: Boolean): Pull[F, Byte, Unit] = {
+      bytesPull
+        .flatMap {
+          case Some(chunk) => Pull.output(chunk) >> go(false)
+          case None => Pull.done
+        }
+        .handleErrorWith {
+          case ex: SocketException if ex.getMessage.contains("Connection reset") && !init =>
+            Pull.done
+          case ex => Pull.raiseError(ex)
+        }
+    }
 
-    go().stream
+    go(true).stream
   }
 
   private def write[F[_]: Async](

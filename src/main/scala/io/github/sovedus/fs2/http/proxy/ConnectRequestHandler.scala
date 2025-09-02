@@ -17,6 +17,7 @@
 package io.github.sovedus.fs2.http.proxy
 
 import cats.effect.Async
+import cats.effect.kernel.Resource
 import cats.syntax.all.*
 
 import org.http4s.{ParseFailure, Request, Uri}
@@ -26,34 +27,46 @@ import com.comcast.ip4s.{Host, Port, SocketAddress}
 import fs2.io.net.Network
 
 trait ConnectRequestHandler[F[_]] {
-  def handleRequest(req: Request[F]): F[ConnectAction[F]]
+  def handleRequest(req: Request[F]): Resource[F, ConnectAction[F]]
 }
 
 object ConnectRequestHandler {
   private class DefaultConnectRequestHandler[F[_]: Async: Network](logger: Logger[F])
       extends ConnectRequestHandler[F] {
 
-    override def handleRequest(req: Request[F]): F[ConnectAction[F]] =
-      Async[F]
-        .delay(extractHostAndPort(req.uri))
-        .map { case (host, port) => (host, port.getOrElse(Port.fromInt(443).get)) }
-        .map { case (host, port) => SocketAddress(host, port) }
-        .attemptT
-        .map(acceptAction)
-        .valueOrF(ex =>
-          logger.error(ex)("Handle connect request error").as(ConnectAction.reject[F])
-        )
+    override def handleRequest(req: Request[F]): Resource[F, ConnectAction[F]] = {
+      for {
+        (host, port) <- Resource.eval(Async[F].delay(extractHostAndPort(req.uri)))
+        address = SocketAddress(host, port)
+        action <- getConnectAction(address)
+      } yield action
+    }
 
-    private def acceptAction(address: SocketAddress[Host]): ConnectAction.Accept[F] =
-      ConnectAction.accept { stream =>
-        fs2.Stream.resource(Network[F].client(address)).flatMap { socket =>
-          val writeS = stream.chunks.foreach(chunk => socket.write(chunk))
+    private def getConnectAction(
+        address: SocketAddress[Host]
+    ): Resource[F, ConnectAction[F]] = {
+      Network[F]
+        .client(address)
+        .map { socket =>
+          ConnectAction.accept { stream: fs2.Stream[F, Byte] =>
+            val writeS = stream.chunks.foreach(chunk => socket.write(chunk))
 
-          socket.reads.concurrently(writeS)
+            fs2
+              .Stream(
+                writeS,
+                socket.reads
+              )
+              .parJoinUnbounded
+          }
         }
-      }
+        .handleErrorWith { ex: Throwable =>
+          Resource
+            .eval(logger.error(ex)("Handle connect request error"))
+            .as(ConnectAction.reject[F])
+        }
+    }
 
-    private def extractHostAndPort(uri: Uri): (Host, Option[Port]) =
+    private def extractHostAndPort(uri: Uri): (Host, Port) =
       if (uri.host.isEmpty) {
         val address = uri.renderString.stripPrefix("//")
         val lastColonIdx = address.lastIndexOf(':')
@@ -65,7 +78,7 @@ object ConnectRequestHandler {
           .fromString(rawHost)
           .getOrElse(throw new IllegalArgumentException("Request URI not contains host"))
 
-        val port = Port.fromString(rawPort)
+        val port = Port.fromString(rawPort).getOrElse(Port.fromInt(443).get)
 
         (host, port)
       } else {
@@ -74,7 +87,7 @@ object ConnectRequestHandler {
           .flatMap(Host.fromString)
           .getOrElse(throw new ParseFailure("Fail parse request URI", ""))
 
-        val port = uri.port.flatMap(Port.fromInt)
+        val port = uri.port.flatMap(Port.fromInt).getOrElse(Port.fromInt(443).get)
 
         (host, port)
       }

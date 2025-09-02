@@ -31,8 +31,8 @@ class HttpProxyServerSpec extends BaseSpec {
 
   "HttpProxyServer" should "establish a tunnel for CONNECT requests and return the passed data" in {
     val echoConnectRequestHandler = new ConnectRequestHandler[IO] {
-      override def handleRequest(req: Request[IO]): IO[ConnectAction[IO]] =
-        IO(ConnectAction.accept(stream => stream))
+      override def handleRequest(req: Request[IO]): Resource[IO, ConnectAction[IO]] =
+        Resource.pure(ConnectAction.accept(stream => stream))
     }
 
     createServer(echoConnectRequestHandler, null)
@@ -63,8 +63,8 @@ class HttpProxyServerSpec extends BaseSpec {
 
   it should "reject connection without response" in {
     val rejectConnectRequestHandler = new ConnectRequestHandler[IO] {
-      override def handleRequest(req: Request[IO]): IO[ConnectAction[IO]] =
-        IO(ConnectAction.reject[IO])
+      override def handleRequest(req: Request[IO]): Resource[IO, ConnectAction[IO]] =
+        Resource.pure(ConnectAction.reject[IO])
     }
 
     createServer(rejectConnectRequestHandler, null)
@@ -88,8 +88,8 @@ class HttpProxyServerSpec extends BaseSpec {
     val htmlResponse = "<h1>BadGateway</h1>"
 
     val rejectConnectRequestHandler = new ConnectRequestHandler[IO] {
-      override def handleRequest(req: Request[IO]): IO[ConnectAction[IO]] =
-        IO {
+      override def handleRequest(req: Request[IO]): Resource[IO, ConnectAction[IO]] =
+        Resource.pure {
           val stream = fs2.Stream.emit(htmlResponse).through(fs2.text.utf8.encode)
           ConnectAction.reject[IO](Response[IO](Status.BadGateway, body = stream))
         }

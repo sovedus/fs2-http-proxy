@@ -16,7 +16,7 @@
 
 package io.github.sovedus.fs2.http.proxy
 
-import cats.effect.IO
+import cats.effect.{IO, Resource}
 
 import org.http4s.{Header, Method, Request, Uri}
 import org.scalatest.Assertion
@@ -62,32 +62,32 @@ class DefaultConnectRequestHandlerSpec extends BaseSpec {
 
   private def serverTest(
       handler: ConnectRequestHandler[IO]
-  )(request: SocketAddress[Host] => Request[IO]): IO[Assertion] =
-    Network[IO]
-      .serverResource()
-      .use {
-        case (address, sockets) =>
-          for {
-            _ <- sockets
-              .map(socket => socket.reads.through(socket.writes))
-              .parJoin(1)
+  )(request: SocketAddress[Host] => Request[IO]): IO[Assertion] = {
+    val res = for {
+      (address, sockets) <- Network[IO].serverResource()
+      _ <- sockets
+        .map(socket => socket.reads.through(socket.writes))
+        .parJoin(1)
+        .compile
+        .drain
+        .background
+      action <- handler.handleRequest(request(address))
+      result <- Resource.eval {
+        action match {
+          case ConnectAction.Accept(_, tunnel) =>
+            fs2.Stream
+              .emit("ping")
+              .through(fs2.text.utf8.encode)
+              .through(tunnel)
+              .through(fs2.text.utf8.decode)
+              .interruptAfter(100.millis)
               .compile
-              .drain
-              .start
-            action <- handler.handleRequest(request(address))
-            result <- action match {
-              case ConnectAction.Accept(_, tunnel) =>
-                fs2.Stream
-                  .emit("ping")
-                  .through(fs2.text.utf8.encode)
-                  .through(tunnel)
-                  .through(fs2.text.utf8.decode)
-                  .interruptAfter(100.millis)
-                  .compile
-                  .string
-              case ConnectAction.Reject(_) => IO(fail("Handler return reject action"))
-            }
-          } yield result
+              .string
+          case ConnectAction.Reject(_) => IO(fail("Handler return reject action"))
+        }
       }
-      .asserting(_ shouldBe "ping")
+    } yield result
+
+    res.use(r => IO(r shouldBe "ping"))
+  }
 }
