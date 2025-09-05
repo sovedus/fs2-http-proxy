@@ -32,7 +32,7 @@ lazy val root = (project in file(".")).settings(
   semanticdbEnabled := true,
   semanticdbVersion := scalafixSemanticdb.revision,
   libraryDependencies ++= Seq(
-    "co.fs2" %% "fs2-io" % "3.12.0",
+    "co.fs2" %% "fs2-io" % "3.12.2",
     "org.typelevel" %% "cats-parse" % "1.1.0",
     "org.typelevel" %% "case-insensitive" % "1.5.0",
     "org.typelevel" %% "log4cats-core" % log4catsVersion,
