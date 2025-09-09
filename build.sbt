@@ -24,6 +24,7 @@ ThisBuild / semanticdbOptions ++= Seq("-P:semanticdb:synthetics:on")
 
 ThisBuild / scalaVersion := "2.13.16"
 
+addCommandAlias("testCoverage", "clean;coverage;test;coverageReport;coverageOff")
 addCommandAlias("fmt", "scalafmtAll;scalafmtSbt")
 
 lazy val root = (project in file(".")).settings(
