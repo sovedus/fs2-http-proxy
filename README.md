@@ -1,8 +1,8 @@
 
 # fs2-http-proxy
 
----
 [![Continuous Integration](https://github.com/sovedus/fs2-http-proxy/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/sovedus/fs2-http-proxy/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/sovedus/fs2-http-proxy/graph/badge.svg?token=IYA51SXJT0)](https://codecov.io/gh/sovedus/fs2-http-proxy)
 [![Maven Central Version](https://img.shields.io/maven-central/v/io.github.sovedus/fs2-socks5_2.13)](https://central.sonatype.com/search?namespace=io.github.sovedus&q=fs2-http-proxy)
 
 
