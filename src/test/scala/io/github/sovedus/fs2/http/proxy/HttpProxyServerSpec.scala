@@ -115,8 +115,8 @@ class HttpProxyServerSpec extends BaseSpec {
 
   it should "forward the request to the destination and return the response" in {
     val simpleHttpRequestHandler = new HttpRequestHandler[IO] {
-      override def handleRequest(req: Request[IO]): IO[Response[IO]] =
-        IO(Response[IO](Status.NoContent))
+      override def handleRequest(req: Request[IO]): Resource[IO, Response[IO]] =
+        Resource.pure(Response[IO](Status.NoContent))
     }
 
     createServer(null, simpleHttpRequestHandler)

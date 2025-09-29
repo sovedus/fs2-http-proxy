@@ -19,8 +19,8 @@ package io.github.sovedus.fs2.http.proxy
 import io.github.sovedus.fs2.http.proxy.parsers.ResponseParser
 
 import cats.data.OptionT
-import cats.effect.Async
-import cats.effect.implicits.genSpawnOps
+import cats.effect.{Async, Resource}
+import cats.effect.implicits.{effectResourceOps, genSpawnOps}
 import cats.syntax.all.*
 
 import org.http4s.{Charset, Headers, MediaType, Request, Response, Status}
@@ -33,7 +33,7 @@ import com.comcast.ip4s.{Host, Port, SocketAddress}
 import fs2.io.net.Network
 
 trait HttpRequestHandler[F[_]] {
-  def handleRequest(req: Request[F]): F[Response[F]]
+  def handleRequest(req: Request[F]): Resource[F, Response[F]]
 }
 
 object HttpRequestHandler {
@@ -49,7 +49,7 @@ object HttpRequestHandler {
     private val exceptionResponse =
       errResponse(Status.InternalServerError, _)
 
-    override def handleRequest(req: Request[F]): F[Response[F]] = {
+    override def handleRequest(req: Request[F]): Resource[F, Response[F]] = {
       val socketAddressOpt = for {
         host <- OptionT
           .fromOption(req.uri.host)
@@ -57,28 +57,39 @@ object HttpRequestHandler {
         port <- OptionT.fromOption(Port.fromInt(req.uri.port.getOrElse(80)))
       } yield SocketAddress(host, port)
 
-      socketAddressOpt
-        .semiflatMap { address =>
-          Network[F].client(address).use { socket =>
-            for {
-              _ <- Encoder
-                .encode(req.withUri(req.uri.toOriginForm))
-                .through(socket.writes)
-                .compile
-                .drain
-                .start
-                .void
-              read = socket.read(BUFFER_SIZE).recoverWith {
-                case _: ClosedChannelException => Async[F].pure(None)
-              }
-              resp <- ResponseParser.parse(read)
-            } yield resp
-          }
+      Resource
+        .eval(socketAddressOpt.value)
+        .flatMap {
+          case Some(address) => sendRequest(address, req)
+          case None => Resource.pure(invalidAddressResponse)
         }
-        .getOrElse(invalidAddressResponse)
         .recoverWith(ex =>
-          logger.error(ex)("Handle request error").as(exceptionResponse(ex.getMessage))
+          logger
+            .error(ex)("Handle request error")
+            .toResource
+            .as(exceptionResponse(ex.getMessage))
         )
+    }
+
+    private def sendRequest(
+        address: SocketAddress[Host],
+        request: Request[F]
+    ): Resource[F, Response[F]] = {
+      Network[F].client(address).evalMap { socket =>
+        for {
+          _ <- Encoder
+            .encode(request.withUri(request.uri.toOriginForm))
+            .through(socket.writes)
+            .compile
+            .drain
+            .start
+            .void
+          read = socket.read(BUFFER_SIZE).recoverWith {
+            case _: ClosedChannelException => Async[F].pure(None)
+          }
+          resp <- ResponseParser.parse(read)
+        } yield resp
+      }
     }
 
     private def errResponse(status: Status, body: String): Response[F] = {

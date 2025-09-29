@@ -121,7 +121,7 @@ object HttpProxyServer {
       connection: Socket[F]
   ): Stream[F, Unit] =
     Stream
-      .eval(httpRequestHandler.handleRequest(req))
+      .resource(httpRequestHandler.handleRequest(req))
       .flatMap(Encoder.encode[F])
       .through(connection.writes)
       .void

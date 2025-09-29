@@ -37,7 +37,10 @@ class DefaultHttpRequestHandlerSpec extends BaseSpec {
       .withHeaders(Header.Raw(ci"User-Agent", "curl/8.15.0"))
       .withHeaders(Header.Raw(ci"Accept", "*/*"))
 
-    handler.handleRequest(req).asserting(resp => resp.status.isSuccess shouldBe true)
+    handler
+      .handleRequest(req)
+      .use(resp => IO(resp.status))
+      .asserting(status => status.isSuccess shouldBe true)
   }
 
 }
