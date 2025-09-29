@@ -1,8 +1,10 @@
-[![](https://maven-badges.sml.io/sonatype-central/io.github.sovedus/fs2-http-proxy_2.13/badge.svg)](https://central.sonatype.com/search?namespace=io.github.sovedus&q=fs2-http-proxy)
 
 # fs2-http-proxy
 
 ---
+[![Continuous Integration](https://github.com/sovedus/fs2-http-proxy/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/sovedus/fs2-http-proxy/actions/workflows/ci.yml)
+[![Maven Central Version](https://img.shields.io/maven-central/v/io.github.sovedus/fs2-socks5_2.13)](https://central.sonatype.com/search?namespace=io.github.sovedus&q=fs2-http-proxy)
+
 
 ## ⚠️ Warning
 ### This library is currently in development. 
