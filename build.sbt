@@ -51,7 +51,7 @@ lazy val root = (project in file(".")).settings(
     "org.typelevel" %% "log4cats-core" % log4catsVersion,
     "org.http4s" %% "http4s-core" % "0.23.32",
     "org.typelevel" %% "log4cats-slf4j" % log4catsVersion % Test,
-    "ch.qos.logback" % "logback-classic" % "1.5.18" % Test,
+    "ch.qos.logback" % "logback-classic" % "1.5.19" % Test,
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.7.0" % Test,
     "org.scalatestplus" %% "scalacheck-1-18" % "3.2.19.0" % Test
