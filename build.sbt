@@ -34,7 +34,7 @@ ThisBuild / scalafixDependencies ++= Seq(
 )
 ThisBuild / semanticdbOptions ++= Seq("-P:semanticdb:synthetics:on")
 
-ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / scalaVersion := "2.13.18"
 
 addCommandAlias("testCoverage", "clean;coverage;test;coverageReport;coverageOff")
 addCommandAlias("fmt", "scalafmtAll;scalafmtSbt")
