@@ -49,7 +49,7 @@ lazy val root = (project in file(".")).settings(
     "org.typelevel" %% "cats-parse" % "1.1.0",
     "org.typelevel" %% "case-insensitive" % "1.5.0",
     "org.typelevel" %% "log4cats-core" % log4catsVersion,
-    "org.http4s" %% "http4s-core" % "0.23.32",
+    "org.http4s" %% "http4s-core" % "0.23.33",
     "org.typelevel" %% "log4cats-slf4j" % log4catsVersion % Test,
     "ch.qos.logback" % "logback-classic" % "1.5.28" % Test,
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
